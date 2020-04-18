@@ -9,6 +9,7 @@ import os.path
 import sftbot
 import cgi
 import HTMLParser
+import re
 
 irc = None
 mumble = None
@@ -16,6 +17,7 @@ console = None
 
 
 def mumbleTextMessageCallback(sender, message):
+    message = re.sub('<a href="([^"]+)">([^"]+)</a>', '\\1', message)
     line = sender + ": " + HTMLParser.HTMLParser().unescape(message)
     console.sendTextMessage(line)
     irc.sendTextMessage(line)
