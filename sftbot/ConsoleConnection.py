@@ -40,6 +40,7 @@ class ConsoleConnection(AbstractConnection.AbstractConnection):
             line = sys.stdin.readline()
         except KeyboardInterrupt:
             self._log("keyboard interrupt", 1)
+            self._invokeTextCallback("console", "Goodbye.")
             return False
 
         line = util.try_decode(line, self._encoding)
