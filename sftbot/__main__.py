@@ -7,6 +7,7 @@ import time
 import ConfigParser
 import os.path
 import sftbot
+import cgi
 
 irc = None
 mumble = None
@@ -23,9 +24,9 @@ def mumbleTextMessageCallback(sender, message):
 
 
 def ircTextMessageCallback(sender, message):
-    line = "irc: " + sender + ": " + message
+    line = '<' + sender + "> " + message
     console.sendTextMessage(line)
-    mumble.sendTextMessage(line)
+    mumble.sendTextMessage(cgi.escape(line))
     if (message == 'gtfo'):
         irc.sendTextMessage("KAY CU")
         irc.stop()
