@@ -8,6 +8,7 @@ import ConfigParser
 import os.path
 import sftbot
 import cgi
+import HTMLParser
 
 irc = None
 mumble = None
@@ -15,7 +16,7 @@ console = None
 
 
 def mumbleTextMessageCallback(sender, message):
-    line = "mumble: " + sender + ": " + message
+    line = sender + ": " + HTMLParser.HTMLParser().unescape(message)
     console.sendTextMessage(line)
     irc.sendTextMessage(line)
     if(message == 'gtfo'):
