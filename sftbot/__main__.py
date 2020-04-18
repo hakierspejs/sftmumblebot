@@ -34,8 +34,7 @@ def ircTextMessageCallback(sender, message):
 
 def consoleTextMessageCallback(sender, message):
     line = "console: " + message
-    irc.sendTextMessage(line)
-    mumble.sendTextMessage(line)
+    print(line)
 
 
 def mumbleConnected():

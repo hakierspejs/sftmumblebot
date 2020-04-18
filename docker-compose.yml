@@ -1,0 +1,4 @@
+mumble:
+    build: .
+    restart: unless-stopped
+    tty: true
