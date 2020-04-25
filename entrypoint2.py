@@ -28,11 +28,20 @@ messageTypes = {
     15: pb2.CryptSetup,
 }
 
+channelIds = {}
+users = {}
+userIds = {}
+
 for k, v in messageTypes.items():
     v.typeID = k
 
 
+def log(*args, **kwargs):
+    pass
 
+
+def joinChannel(*args, **kwargs):
+    pass
 
 
 def try_decode(line, preferredcodec):
@@ -128,7 +137,7 @@ def initConnection(socket, nickname):
     return True
 
 
-def listen(socket):
+def listen(socket, session, channel):
     header = socket.recv(6)
     if len(header) == 6:
         (mid, size) = struct.unpack(">HI", header)
@@ -146,6 +155,8 @@ def listen(socket):
 
     if messagetype != pb2.UDPTunnel:
         pbMess.ParseFromString(data)
+
+    print(pbMess)
 
     if messagetype == pb2.ServerSync:
         session = pbMess.session
@@ -187,7 +198,7 @@ def main():
     initConnection(socket, 'test')
 
     while True:
-        listen(socket)
+        listen(socket, None, "Hakierspejs")
 
 
 if __name__ == "__main__":

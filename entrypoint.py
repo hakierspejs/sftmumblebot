@@ -37,6 +37,8 @@ for k, v in messageTypes.items():
 
 
 
+def log(*args, **kwargs):
+    pass
 
 
 def try_decode(line, preferredcodec):
