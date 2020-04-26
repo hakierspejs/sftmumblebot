@@ -4,6 +4,7 @@ import time
 import ssl
 import asyncio
 import struct
+import logging
 
 import Mumble_pb2 as pb2
 
@@ -61,25 +62,16 @@ async def initConnection(conn, nickname):
     await send_message(msg, conn)
 
 
-async def read_n_bytes(conn, n):
-    ret = b''
-    while len(ret) < n:
-        remaining = n - len(ret)
-        ret += await conn.read(remaining)
-    return ret
-
-
-
 async def listen(conn_r, conn_w):
     while True:
         try:
             header = await asyncio.wait_for(conn_r.read(6), timeout=5)
             break
         except asyncio.TimeoutError:
-            print('Sending ping')
+            logging.debug('No messages observed, sending a PING')
             await send_message(pb2.Ping(), conn_w)
     (mid, size) = struct.unpack(">HI", header)
-    data = await read_n_bytes(conn_r, size)
+    data = await conn_r.read(size)
     messagetype = messageTypes[mid]
     msg = messagetype()
     if messagetype != pb2.UDPTunnel:
@@ -94,15 +86,16 @@ async def main():
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
     conn_r, conn_w = await asyncio.open_connection(
-        'junkcc.net', 64738, ssl=True
+        #'junkcc.net', 64738, ssl=True
+        'localhost', 64738, ssl=ssl_ctx
     )
     await initConnection(conn_w, 'test')
 
     while True:
         msg = await listen(conn_r, conn_w)
-        print(type(msg))
-        print(msg)
+        logging.debug('Got a message: %r\n%s', type(msg), repr(msg))
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level='DEBUG')
     asyncio.run(main())
