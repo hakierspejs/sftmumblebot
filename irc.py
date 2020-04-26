@@ -21,7 +21,8 @@ async def listen(conn_r, conn_w):
         if len(line) < 2:
             continue
         if line[0] == b"PING":
-            sendMessage(conn_w, b"PONG " + line[1])
+            conn_w.write(conn_w, b"PONG " + line[1])
+            await conn_w.drain()
         if len(line) < 4:
             continue
         return line
