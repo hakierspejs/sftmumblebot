@@ -1,5 +1,7 @@
 #!/usr/bin/env python2
 
+import time
+import ssl
 import asyncio
 import struct
 
@@ -59,30 +61,37 @@ async def initConnection(conn, nickname):
     await send_message(msg, conn)
 
 
-async def listen(conn):
-    header = await conn.read(6)
-    if len(header) == 6:
-        (mid, size) = struct.unpack(">HI", header)
-    else:
-        raise Exception("expected 6 bytes, but got " + str(len(header)))
+async def read_n_bytes(conn, n):
+    ret = b''
+    while len(ret) < n:
+        remaining = n - len(ret)
+        ret += await conn.read(remaining)
+    return ret
 
-    data = bytearray()
-    while len(data) < size:
-        data.extend(await conn.read(size - len(data)))
 
-    if mid not in messageTypes:
-        return
-        raise Exception('Unexpected message type: %r' % mid)
+
+async def listen(conn_r, conn_w):
+    while True:
+        try:
+            header = await asyncio.wait_for(conn_r.read(6), timeout=5)
+            break
+        except asyncio.TimeoutError:
+            print('Sending ping')
+            await send_message(pb2.Ping(), conn_w)
+    (mid, size) = struct.unpack(">HI", header)
+    data = await read_n_bytes(conn_r, size)
     messagetype = messageTypes[mid]
     msg = messagetype()
-
     if messagetype != pb2.UDPTunnel:
         msg.ParseFromString(data)
-
     return msg
 
 
 async def main():
+
+    ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ssl_ctx.check_hostname = False
+    ssl_ctx.verify_mode = ssl.CERT_NONE
 
     conn_r, conn_w = await asyncio.open_connection(
         'junkcc.net', 64738, ssl=True
@@ -90,7 +99,8 @@ async def main():
     await initConnection(conn_w, 'test')
 
     while True:
-        msg = await listen(conn_r)
+        msg = await listen(conn_r, conn_w)
+        print(type(msg))
         print(msg)
 
 
