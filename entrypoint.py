@@ -46,34 +46,34 @@ def openConnection(hostname, port):
         raise Exception("Error setting up the SSL/TLS socket to murmur.")
 
 
-def send_message(message, socket):
+def send_message(message, conn):
     stringMessage = message.SerializeToString()
     length = len(stringMessage)
     header = struct.pack(">HI", message.typeID, length)
     packedMessage = header + stringMessage
     while len(packedMessage) > 0:
-        sent = socket.send(packedMessage)
+        sent = conn.send(packedMessage)
         if sent < 0:
             raise Exception("could not send message")
         packedMessage = packedMessage[sent:]
     return True
 
 
-def initConnection(socket, nickname):
+def initConnection(conn, nickname):
     msg = pb2.Version()
     msg.release = "1.2.6"
     msg.version = 0x010206
     msg.os = 'Linux'
     msg.os_version = "mumblebot lol"
-    send_message(msg, socket)
+    send_message(msg, conn)
     msg = pb2.Authenticate()
     msg.username = nickname
     msg.opus = True
-    send_message(msg, socket)
+    send_message(msg, conn)
 
 
-def listen(socket, session, channel):
-    header = socket.recv(6)
+def listen(conn):
+    header = conn.recv(6)
     if len(header) == 6:
         (mid, size) = struct.unpack(">HI", header)
     else:
@@ -81,10 +81,10 @@ def listen(socket, session, channel):
 
     data = bytearray()
     while len(data) < size:
-        data.extend(socket.recv(size - len(data)))
+        data.extend(conn.recv(size - len(data)))
 
     if mid not in messageTypes:
-        return
+        raise Exception('Unexpected message type: %r' % mid)
     messagetype = messageTypes[mid]
     msg = messagetype()
 
@@ -96,11 +96,11 @@ def listen(socket, session, channel):
 
 def main():
 
-    socket = openConnection('junkcc.net', 64738)
-    initConnection(socket, 'test')
+    conn = openConnection('junkcc.net', 64738)
+    initConnection(conn, 'test')
 
     while True:
-        msg = listen(socket, None, "Hakierspejs")
+        msg = listen(conn)
         print(msg)
 
 
