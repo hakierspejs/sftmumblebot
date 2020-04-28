@@ -5,6 +5,7 @@ import ssl
 import asyncio
 import struct
 import logging
+import time
 
 import Mumble_pb2 as pb2
 
@@ -49,34 +50,65 @@ async def send_message(message, conn):
     await conn.drain()
 
 
-async def initConnection(conn, nickname):
+
+async def join_channel(conn_r, conn_w, channel_name):
+    channel_id = None
+    now = time.time()
+    logging.info('Synchronizing...')
+    while True:
+        msg, _ = await listen(conn_r, conn_w, now)
+        if type(msg) == pb2.ChannelState:
+            if msg.name == channel_name:
+                channel_id = msg.channel_id
+        elif type(msg) == pb2.ServerSync:
+            if not channel_id:
+                raise RuntimeError('Invalid channel name: %r' % channel_name)
+            pbMess = pb2.UserState()
+            pbMess.session = msg.session
+            pbMess.channel_id = channel_id
+            logging.info('Joining channel...')
+            await send_message(pbMess, conn_w)
+            break
+
+
+async def initConnection(conn_r, conn_w, nickname, channel_name):
     msg = pb2.Version()
     msg.release = "1.2.6"
     msg.version = 0x010206
     msg.os = 'Linux'
     msg.os_version = "mumblebot lol"
-    await send_message(msg, conn)
+    await send_message(msg, conn_w)
     msg = pb2.Authenticate()
     msg.username = nickname
     msg.opus = True
-    await send_message(msg, conn)
+    await send_message(msg, conn_w)
+    await join_channel(conn_r, conn_w, channel_name)
 
 
-async def listen(conn_r, conn_w):
+async def maybe_send_ping(conn_w, last_ping):
+    now = time.time()
+    if now - last_ping > 3:
+        logging.debug('sending a PING')
+        await send_message(pb2.Ping(), conn_w)
+        last_ping = now
+    return last_ping
+
+
+async def listen(conn_r, conn_w, last_ping):
     while True:
+        last_ping = await maybe_send_ping(conn_w, last_ping)
         try:
-            header = await asyncio.wait_for(conn_r.read(6), timeout=5)
+            header = await asyncio.wait_for(conn_r.read(6), timeout=2)
             break
         except asyncio.TimeoutError:
-            logging.debug('No messages observed, sending a PING')
-            await send_message(pb2.Ping(), conn_w)
+            pass
     (mid, size) = struct.unpack(">HI", header)
     data = await conn_r.read(size)
     messagetype = messageTypes[mid]
     msg = messagetype()
     if messagetype != pb2.UDPTunnel:
         msg.ParseFromString(data)
-    return msg
+    return msg, last_ping
 
 
 async def main():
@@ -86,16 +118,22 @@ async def main():
     ssl_ctx.verify_mode = ssl.CERT_NONE
 
     conn_r, conn_w = await asyncio.open_connection(
-        #'junkcc.net', 64738, ssl=True
-        'localhost', 64738, ssl=ssl_ctx
+        'junkcc.net', 64738, ssl=True
+        #'localhost', 64738, ssl=ssl_ctx
     )
-    await initConnection(conn_w, 'test')
+    await initConnection(conn_r, conn_w, 'test', 'Hakierspejs')
+
+    last_ping = time.time()
 
     while True:
-        msg = await listen(conn_r, conn_w)
-        logging.debug('Got a message: %r\n%s', type(msg), repr(msg))
+        msg, last_ping = await listen(conn_r, conn_w, last_ping)
+        if type(msg) != pb2.UDPTunnel:
+            logging.debug('Got a message: %r\n%s', type(msg), repr(msg))
 
 
 if __name__ == "__main__":
     logging.basicConfig(level='DEBUG')
-    asyncio.run(main())
+    loop = asyncio.get_event_loop()
+    # Blocking call which returns when the hello_world() coroutine is done
+    loop.run_until_complete(main())
+    loop.close()
